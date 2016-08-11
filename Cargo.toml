@@ -1,0 +1,17 @@
+[package]
+name = "hyper_serde"
+version = "0.1.0"
+authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
+description = "Serde support for Hyper types"
+license = "MIT"
+repository = "https://github.com/nox/hyper_serde"
+
+[lib]
+doctest = false
+
+[dependencies]
+hyper = {version = "0.9", default-features = false}
+serde = "0.8"
+
+[dev-dependencies]
+serde_test = "0.8"
