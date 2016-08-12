@@ -65,6 +65,7 @@ use hyper::method::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde::de::{MapVisitor, Visitor};
+use std::cmp::PartialEq;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
@@ -267,7 +268,7 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
 
 /// A convenience wrapper to be used as a type parameter, for example when
 /// a `Vec<T>` need to be passed to serde.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Serde<T>(pub T)
     where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
 
@@ -304,6 +305,14 @@ impl<T> DerefMut for Serde<T>
 {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.0
+    }
+}
+
+impl<T: PartialEq> PartialEq<T> for Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    fn eq(&self, other: &T) -> bool {
+        self.0 == *other
     }
 }
 
