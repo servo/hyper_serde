@@ -54,7 +54,7 @@ ipc::channel::<Cookie>()
 
 extern crate cookie;
 extern crate hyper;
-#[macro_use]
+#[cfg_attr(test, macro_use)]
 extern crate mime;
 extern crate serde;
 
