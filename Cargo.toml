@@ -1,6 +1,6 @@
 [package]
 name = "hyper_serde"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for Hyper types"
 license = "MIT"
