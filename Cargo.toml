@@ -10,7 +10,7 @@ repository = "https://github.com/nox/hyper_serde"
 doctest = false
 
 [dependencies]
-cookie = "0.2"
+cookie = {version = "0.2", default-features = false}
 hyper = {version = "0.9", default-features = false}
 serde = "0.8"
 
