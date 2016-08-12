@@ -6,6 +6,7 @@ Serde work hand in hand.
 The supported types are:
 
  * `cookie::Cookie`
+ * `hyper::header::ContentType`
  * `hyper::header::Headers`
  * `hyper::http::RawStatus`
  * `hyper::method::Method`
@@ -53,12 +54,15 @@ ipc::channel::<Cookie>()
 
 extern crate cookie;
 extern crate hyper;
+#[macro_use]
+extern crate mime;
 extern crate serde;
 
 use cookie::Cookie;
-use hyper::header::Headers;
+use hyper::header::{ContentType, Headers};
 use hyper::http::RawStatus;
 use hyper::method::Method;
+use mime::Mime;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde::de::{MapVisitor, Visitor};
 use std::ops::{Deref, DerefMut};
@@ -91,6 +95,14 @@ impl<T> De<T> where De<T>: Deserialize {
     #[inline(always)]
     pub fn into_inner(self) -> T {
         self.0
+    }
+}
+
+impl Deserialize for De<ContentType> {
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+        where D: Deserializer
+    {
+        Mime::deserialize(deserializer).map(ContentType).map(De)
     }
 }
 
@@ -204,6 +216,14 @@ impl<'a, T> Ser<'a, T> where Ser<'a, T>: serde::Serialize {
     }
 }
 
+impl<'a> Serialize for Ser<'a, ContentType> {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: Serializer
+    {
+        (self.0).0.serialize(serializer)
+    }
+}
+
 impl<'a> Serialize for Ser<'a, Cookie> {
     fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
         where S: Serializer
@@ -284,6 +304,15 @@ impl<T> Serialize for Serde<T>
     {
         Ser(&self.0).serialize(serializer)
     }
+}
+
+#[test]
+fn test_content_type() {
+    let content_type = ContentType(mime!(Application/Json));
+    let tokens = &[Token::Str("application/json")];
+
+    assert_ser_tokens(&Ser::new(&content_type), tokens);
+    assert_de_tokens(&De(content_type), tokens);
 }
 
 #[test]
