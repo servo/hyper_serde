@@ -50,6 +50,16 @@ use serde::de::{MapVisitor, Visitor};
 #[cfg(test)] extern crate serde_test;
 #[cfg(test)] use serde_test::{Token, assert_de_tokens, assert_ser_tokens};
 
+/// Deserialises a `T` value with a given deserializer.
+///
+/// This is useful to deserialize Hyper types used in structure fields or
+/// tuple members with `#[serde(deserialize_with = "hyper_serde::deserialize")]`.
+pub fn deserialize<T, D>(deserializer: &mut D) -> Result<T, D::Error>
+    where D: Deserializer, De<T>: Deserialize
+{
+    De::deserialize(deserializer).map(De::into_inner)
+}
+
 /// A wrapper to deserialize Hyper types.
 ///A
 /// This is useful with functions such as `serde_json::from_str`.
@@ -110,6 +120,16 @@ impl Deserialize for De<Method> {
     }
 }
 
+/// Serialises `value` with a given serializer.
+///
+/// This is useful to serialize Hyper types used in structure fields or
+/// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
+pub fn serialize<T, S>(value: &T, serializer: &mut S) -> Result<(), S::Error>
+    where S: Serializer, for<'a> Ser<'a, T>: Serialize
+{
+    Ser::new(value).serialize(serializer)
+}
+
 /// A wrapper to serialize Hyper types.
 ///
 /// This is useful with functions such as `serde_json::to_string`.
@@ -146,26 +166,6 @@ impl<'a> Serialize for Ser<'a, Method> {
     {
         Serialize::serialize(self.0.as_ref(), serializer)
     }
-}
-
-/// Deserialises a `T` value with a given deserializer.
-///
-/// This is useful to deserialize Hyper types used in structure fields or
-/// tuple members with `#[serde(deserialize_with = "hyper_serde::deserialize")]`.
-pub fn deserialize<T, D>(deserializer: &mut D) -> Result<T, D::Error>
-    where D: Deserializer, De<T>: Deserialize
-{
-    De::deserialize(deserializer).map(De::into_inner)
-}
-
-/// Serialises `value` with a given serializer.
-///
-/// This is useful to serialize Hyper types used in structure fields or
-/// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
-pub fn serialize<T, S>(value: &T, serializer: &mut S) -> Result<(), S::Error>
-    where S: Serializer, for<'a> Ser<'a, T>: Serialize
-{
-    Ser::new(value).serialize(serializer)
 }
 
 #[test]
