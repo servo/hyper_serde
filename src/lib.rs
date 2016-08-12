@@ -65,6 +65,7 @@ use hyper::method::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde::de::{MapVisitor, Visitor};
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 #[cfg(test)] extern crate serde_test;
@@ -268,6 +269,14 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
 #[derive(Clone)]
 pub struct Serde<T>(pub T)
     where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
+
+impl<T> fmt::Debug for Serde<T>
+    where T: fmt::Debug, De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(formatter)
+    }
+}
 
 impl<T> Deref for Serde<T>
     where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
