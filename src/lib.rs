@@ -17,7 +17,7 @@ Use the serde attributes `deserialize_with` and `serialize_with`.
 struct MyStruct {
     #[serde(deserialize_with = "hyper_serde::deserialize",
             serialize_with = "hyper_serde::serialize")]
-    headers: Headers, 
+    headers: Headers,
 }
 ```
 
@@ -66,7 +66,7 @@ pub fn deserialize<T, D>(deserializer: &mut D) -> Result<T, D::Error>
 }
 
 /// A wrapper to deserialize Hyper types.
-///A
+///
 /// This is useful with functions such as `serde_json::from_str`.
 ///
 /// Values of this type can only be obtained through
