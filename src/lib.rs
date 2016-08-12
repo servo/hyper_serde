@@ -266,7 +266,8 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
 /// A convenience wrapper to be used as a type parameter, for example when
 /// a `Vec<T>` need to be passed to serde.
 #[derive(Clone)]
-pub struct Serde<T>(T) where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
+pub struct Serde<T>(pub T)
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
 
 impl<T> Deref for Serde<T>
     where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
