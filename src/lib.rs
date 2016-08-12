@@ -7,6 +7,7 @@ The supported types are:
 
  * `cookie::Cookie`
  * `hyper::header::Headers`
+ * `hyper::http::RawStatus`
  * `hyper::method::Method`
 
 # How do I use a data type with a `Headers` member with Serde?
@@ -56,6 +57,7 @@ extern crate serde;
 
 use cookie::Cookie;
 use hyper::header::Headers;
+use hyper::http::RawStatus;
 use hyper::method::Method;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde::de::{MapVisitor, Visitor};
@@ -168,6 +170,15 @@ impl Deserialize for De<Method> {
     }
 }
 
+impl Deserialize for De<RawStatus> {
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+        where D: Deserializer
+    {
+        let (code, reason) = try!(Deserialize::deserialize(deserializer));
+        Ok(De(RawStatus(code, reason)))
+    }
+}
+
 /// Serialises `value` with a given serializer.
 ///
 /// This is useful to serialize Hyper types used in structure fields or
@@ -221,6 +232,14 @@ impl<'a> Serialize for Ser<'a, Method> {
         where S: Serializer
     {
         Serialize::serialize(self.0.as_ref(), serializer)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, RawStatus> {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: Serializer
+    {
+        ((self.0).0, &(self.0).1).serialize(serializer)
     }
 }
 
@@ -344,4 +363,20 @@ fn test_method() {
 
     assert_ser_tokens(&Ser::new(&method), tokens);
     assert_de_tokens(&De(method), tokens);
+}
+
+#[test]
+fn test_raw_status() {
+    use std::borrow::Cow;
+
+    let raw_status = RawStatus(200, Cow::Borrowed("OK"));
+    let tokens = &[
+        Token::TupleStart(2),
+            Token::TupleSep, Token::U16(200),
+            Token::TupleSep, Token::Str("OK"),
+        Token::TupleEnd,
+    ];
+
+    assert_ser_tokens(&Ser::new(&raw_status), tokens);
+    assert_de_tokens(&De(raw_status), tokens);
 }
