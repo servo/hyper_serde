@@ -3,8 +3,11 @@
 This crate provides wrappers and convenience functions to make Hyper and
 Serde work hand in hand.
 
-Currently, only two types are supported: `hyper::header::Headers`
-and `hyper::method::Method`.
+The supported types are:
+
+ * `cookie::Cookie`
+ * `hyper::header::Headers`
+ * `hyper::method::Method`
 
 # How do I use a data type with a `Headers` member with Serde?
 
@@ -39,9 +42,11 @@ serde_json::parse::<De<Method>>("\"PUT\"").map(De::into_inner)
 #[deny(missing_docs)]
 #[deny(unsafe_code)]
 
+extern crate cookie;
 extern crate hyper;
 extern crate serde;
 
+use cookie::Cookie;
 use hyper::header::Headers;
 use hyper::method::Method;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
@@ -75,6 +80,28 @@ impl<T> De<T> where De<T>: Deserialize {
     #[inline(always)]
     pub fn into_inner(self) -> T {
         self.0
+    }
+}
+
+impl Deserialize for De<Cookie> {
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+        where D: Deserializer
+    {
+        struct CookieVisitor;
+
+        impl Visitor for CookieVisitor {
+            type Value = De<Cookie>;
+
+            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
+                where E: Error
+            {
+                Cookie::parse(v).map(De).map_err(|()| {
+                    E::custom("could not deserialize cookie")
+                })
+            }
+        }
+
+        deserializer.deserialize_string(CookieVisitor)
     }
 }
 
@@ -157,6 +184,14 @@ impl<'a, T> Ser<'a, T> where Ser<'a, T>: serde::Serialize {
     }
 }
 
+impl<'a> Serialize for Ser<'a, Cookie> {
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: Serializer
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
 impl<'a> Serialize for Ser<'a, Headers> {
     fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
         where S: Serializer
@@ -178,6 +213,29 @@ impl<'a> Serialize for Ser<'a, Method> {
     {
         Serialize::serialize(self.0.as_ref(), serializer)
     }
+}
+
+#[test]
+fn test_cookie() {
+    use std::collections::BTreeMap;
+
+    let cookie = Cookie {
+        name: "Hello".to_owned(),
+        value: "World!".to_owned(),
+        expires: None,
+        max_age: Some(42),
+        domain: Some("servo.org".to_owned()),
+        path: Some("/".to_owned()),
+        secure: true,
+        httponly: false,
+        custom: BTreeMap::new(),
+    };
+
+    let tokens =
+        &[Token::Str("Hello=World!; Secure; Path=/; Domain=servo.org; Max-Age=42")];
+
+    assert_ser_tokens(&Ser::new(&cookie), tokens);
+    assert_de_tokens(&De(cookie), tokens);
 }
 
 #[test]
