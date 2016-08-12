@@ -37,6 +37,14 @@ Use the `De` wrapper.
 serde_json::parse::<De<Method>>("\"PUT\"").map(De::into_inner)
 ```
 
+# How do I send `Cookie` values as part of an IPC channel?
+
+Use the `Serde` wrapper. It implements `Deref` and `DerefMut` for convenience.
+
+```
+ipc::channel::<Cookie>()
+```
+
 */
 
 #[deny(missing_docs)]
@@ -51,6 +59,7 @@ use hyper::header::Headers;
 use hyper::method::Method;
 use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde::de::{MapVisitor, Visitor};
+use std::ops::{Deref, DerefMut};
 
 #[cfg(test)] extern crate serde_test;
 #[cfg(test)] use serde_test::{Token, assert_de_tokens, assert_ser_tokens};
@@ -212,6 +221,48 @@ impl<'a> Serialize for Ser<'a, Method> {
         where S: Serializer
     {
         Serialize::serialize(self.0.as_ref(), serializer)
+    }
+}
+
+/// A convenience wrapper to be used as a type parameter, for example when
+/// a `Vec<T>` need to be passed to serde.
+pub struct Serde<T>(T) where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
+
+impl<T> Deref for Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
+impl<T> Deserialize for Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+        where D: Deserializer
+    {
+        De::deserialize(deserializer).map(De::into_inner).map(Serde)
+    }
+}
+
+impl<T> Serialize for Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+        where S: Serializer
+    {
+        Ser(&self.0).serialize(serializer)
     }
 }
 
