@@ -114,9 +114,21 @@ impl Deserialize for De<Method> {
     fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
         where D: Deserializer
     {
-        try!(String::deserialize(deserializer))
-            .parse::<Method>().map(De)
-            .map_err(|err| Error::invalid_value(&err.to_string()))
+        struct MethodVisitor;
+
+        impl Visitor for MethodVisitor {
+            type Value = De<Method>;
+
+            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
+                where E: Error
+            {
+                v.parse::<Method>().map(De).map_err(|err| {
+                    E::invalid_value(&err.to_string())
+                })
+            }
+        }
+
+        deserializer.deserialize_string(MethodVisitor)
     }
 }
 
