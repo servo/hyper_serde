@@ -183,10 +183,10 @@ fn test_headers_empty() {
 
 #[test]
 fn test_headers_not_empty() {
-    use hyper::header::ContentLength;
+    use hyper::header::Host;
 
     let mut headers = Headers::new();
-    headers.set(ContentLength(15));
+    headers.set(Host { hostname: "baguette".to_owned(), port: None });
 
     // In Hyper 0.9, Headers is internally a HashMap and thus testing this
     // with multiple headers is non-deterministic.
