@@ -211,6 +211,7 @@ pub fn serialize<T, S>(value: &T, serializer: &mut S) -> Result<(), S::Error>
 pub struct Ser<'a, T: 'a>(&'a T);
 
 impl<'a, T> Ser<'a, T> where Ser<'a, T>: serde::Serialize {
+    /// Returns a new `Ser` wrapper.
     #[inline(always)]
     pub fn new(value: &'a T) -> Self {
         Ser(value)
