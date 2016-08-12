@@ -271,6 +271,16 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
 pub struct Serde<T>(pub T)
     where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize;
 
+impl<T> Serde<T>
+    where De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
+{
+    /// Consumes this wrapper, returning the inner value.
+    #[inline(always)]
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<T> fmt::Debug for Serde<T>
     where T: fmt::Debug, De<T>: Deserialize, for<'a> Ser<'a, T>: Serialize
 {
