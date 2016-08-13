@@ -44,7 +44,7 @@ serde_json::parse::<De<Method>>("\"PUT\"").map(De::into_inner)
 Use the `Serde` wrapper. It implements `Deref` and `DerefMut` for convenience.
 
 ```
-ipc::channel::<Cookie>()
+ipc::channel::<Serde<Cookie>>()
 ```
 
 */
