@@ -120,8 +120,8 @@ impl Deserialize for De<Cookie> {
             fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
                 where E: Error
             {
-                Cookie::parse(v).map(De).map_err(|()| {
-                    E::custom("could not deserialize cookie")
+                Cookie::parse(v).map(De).map_err(|e| {
+                    E::custom(format!("{:?}", e))
                 })
             }
         }
