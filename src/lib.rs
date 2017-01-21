@@ -150,8 +150,8 @@ impl Deserialize for De<Headers> {
                 where V: MapVisitor
             {
                 let mut headers = Headers::new();
-                while let Some((key, value)) = try!(visitor.visit::<String, _>()) {
-                    headers.set_raw(key, value);
+                while let Some((key, value)) = try!(visitor.visit::<String, String>()) {
+                    headers.set_raw(key, vec![value.as_bytes().to_vec()]);
                 }
                 try!(visitor.end());
                 Ok(De(headers))
@@ -242,7 +242,7 @@ impl<'a> Serialize for Ser<'a, Headers> {
         let mut map_state = try!(serializer.serialize_map(Some(self.0.len())));
         for header in self.0.iter() {
             let name = header.name();
-            let value = self.0.get_raw(name).unwrap();
+            let value = header.value_string();
             try!(serializer.serialize_map_key(&mut map_state, name));
             try!(serializer.serialize_map_value(&mut map_state, value));
         }
@@ -395,19 +395,7 @@ fn test_headers_not_empty() {
         Token::MapStart(Some(1)),
             Token::MapSep,
                 Token::Str("Host"),
-                Token::SeqStart(Some(1)),
-                    Token::SeqSep,
-                        Token::SeqStart(Some(8)),
-                            Token::SeqSep, Token::U8(98),  // 'b'
-                            Token::SeqSep, Token::U8(97),  // 'a'
-                            Token::SeqSep, Token::U8(103), // 'g'
-                            Token::SeqSep, Token::U8(117), // 'u'
-                            Token::SeqSep, Token::U8(101), // 'e'
-                            Token::SeqSep, Token::U8(116), // 't'
-                            Token::SeqSep, Token::U8(116), // 't'
-                            Token::SeqSep, Token::U8(101), // 'e'
-                    Token::SeqEnd,
-                Token::SeqEnd,
+                    Token::Str("baguette"),
         Token::MapEnd,
     ];
 
