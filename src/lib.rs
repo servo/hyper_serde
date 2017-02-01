@@ -69,11 +69,13 @@ use serde::ser::{SerializeMap, SerializeSeq};
 use std::cmp;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::str;
 
 /// Deserialises a `T` value with a given deserializer.
 ///
 /// This is useful to deserialize Hyper types used in structure fields or
 /// tuple members with `#[serde(deserialize_with = "hyper_serde::deserialize")]`.
+#[inline(always)]
 pub fn deserialize<T, D>(deserializer: D) -> Result<T, D::Error>
     where D: Deserializer,
           De<T>: Deserialize,
@@ -85,11 +87,30 @@ pub fn deserialize<T, D>(deserializer: D) -> Result<T, D::Error>
 ///
 /// This is useful to serialize Hyper types used in structure fields or
 /// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
+#[inline(always)]
 pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer,
           for<'a> Ser<'a, T>: Serialize,
 {
     Ser::new(value).serialize(serializer)
+}
+
+/// Serialises `value` with a given serializer in a pretty way.
+///
+/// This does the same job as `serialize` but with a prettier format
+/// for some combinations of types and serialisers.
+///
+/// For now, the only change from `serialize` is when serialising `Headers`,
+/// where the items in the header values get serialised as strings instead
+/// of sequences of bytes, if they represent UTF-8 text.
+#[inline(always)]
+pub fn serialize_pretty<T, S>(value: &T,
+                              serializer: S)
+                              -> Result<S::Ok, S::Error>
+    where S: Serializer,
+          for<'a> Ser<'a, T>: Serialize,
+{
+    Ser::new_pretty(value).serialize(serializer)
 }
 
 /// A wrapper to deserialize Hyper types.
@@ -127,6 +148,7 @@ impl<T> De<T>
 #[derive(Debug)]
 pub struct Ser<'a, T: 'a> {
     v: &'a T,
+    pretty: bool,
 }
 
 impl<'a, T> Ser<'a, T>
@@ -135,7 +157,21 @@ impl<'a, T> Ser<'a, T>
     /// Returns a new `Ser` wrapper.
     #[inline(always)]
     pub fn new(value: &'a T) -> Self {
-        Ser { v: value }
+        Ser {
+            v: value,
+            pretty: false,
+        }
+    }
+
+    /// Returns a new `Ser` wrapper, in pretty mode.
+    ///
+    /// See `serialize_pretty`.
+    #[inline(always)]
+    pub fn new_pretty(value: &'a T) -> Self {
+        Ser {
+            v: value,
+            pretty: true,
+        }
     }
 }
 
@@ -346,7 +382,7 @@ impl<'a> Serialize for Ser<'a, Headers> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        struct Value<'headers>(&'headers [Vec<u8>]);
+        struct Value<'headers>(&'headers [Vec<u8>], bool);
 
         impl<'headers> Serialize for Value<'headers> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -355,6 +391,12 @@ impl<'a> Serialize for Ser<'a, Headers> {
                 let mut serializer =
                     serializer.serialize_seq(Some(self.0.len()))?;
                 for v in self.0 {
+                    if self.1 {
+                        if let Ok(v) = str::from_utf8(v) {
+                            serializer.serialize_element(v)?;
+                            continue;
+                        }
+                    }
                     serializer.serialize_element(&Bytes::new(v))?;
                 }
                 serializer.end()
@@ -365,7 +407,7 @@ impl<'a> Serialize for Ser<'a, Headers> {
         for header in self.v.iter() {
             let name = header.name();
             let value = self.v.get_raw(name).unwrap();
-            serializer.serialize_entry(name, &Value(value))?;
+            serializer.serialize_entry(name, &Value(value, self.pretty))?;
         }
         serializer.end()
     }

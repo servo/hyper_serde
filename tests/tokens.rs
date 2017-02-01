@@ -81,6 +81,18 @@ fn test_headers_not_empty() {
 
     assert_ser_tokens(&Ser::new(&headers), tokens);
     assert_de_tokens(&headers, tokens);
+
+    let pretty = &[Token::MapStart(Some(1)),
+                   Token::MapSep,
+                   Token::Str("Host"),
+                   Token::SeqStart(Some(1)),
+                   Token::SeqSep,
+                   Token::Str("baguette"),
+                   Token::SeqEnd,
+                   Token::MapEnd];
+
+    assert_ser_tokens(&Ser::new_pretty(&headers), pretty);
+    assert_de_tokens(&headers, pretty);
 }
 
 #[test]
