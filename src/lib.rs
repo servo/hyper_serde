@@ -80,6 +80,17 @@ pub fn deserialize<T, D>(deserializer: D) -> Result<T, D::Error>
     De::deserialize(deserializer).map(De::into_inner)
 }
 
+/// Serialises `value` with a given serializer.
+///
+/// This is useful to serialize Hyper types used in structure fields or
+/// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
+pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer,
+          for<'a> Ser<'a, T>: Serialize,
+{
+    Ser::new(value).serialize(serializer)
+}
+
 /// A wrapper to deserialize Hyper types.
 ///
 /// This is useful with functions such as `serde_json::from_str`.
@@ -99,146 +110,6 @@ impl<T> De<T>
     }
 }
 
-impl Deserialize for De<ContentType> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        deserialize(deserializer).map(ContentType).map(De)
-    }
-}
-
-impl Deserialize for De<Cookie> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        struct CookieVisitor;
-
-        impl Visitor for CookieVisitor {
-            type Value = De<Cookie>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "an HTTP cookie header value")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-                where E: de::Error,
-            {
-                Cookie::parse(v)
-                    .map(De)
-                    .map_err(|e| E::custom(format!("{:?}", e)))
-            }
-        }
-
-        deserializer.deserialize_string(CookieVisitor)
-    }
-}
-
-impl Deserialize for De<Headers> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        struct HeadersVisitor;
-
-        impl Visitor for HeadersVisitor {
-            type Value = De<Headers>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a map from header names to header values")
-            }
-
-            fn visit_unit<E>(self) -> Result<Self::Value, E>
-                where E: de::Error,
-            {
-                Ok(De(Headers::new()))
-            }
-
-            fn visit_map<V>(self,
-                            mut visitor: V)
-                            -> Result<Self::Value, V::Error>
-                where V: MapVisitor,
-            {
-                let mut headers = Headers::new();
-                while let Some((key, value)) = visitor.visit::<String, _>()? {
-                    headers.set_raw(key, value);
-                }
-                Ok(De(headers))
-            }
-        }
-
-        deserializer.deserialize_map(HeadersVisitor)
-    }
-}
-
-impl Deserialize for De<Method> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        struct MethodVisitor;
-
-        impl Visitor for MethodVisitor {
-            type Value = De<Method>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "an HTTP method")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-                where E: de::Error,
-            {
-                v.parse::<Method>().map(De).map_err(E::custom)
-            }
-        }
-
-        deserializer.deserialize_string(MethodVisitor)
-    }
-}
-
-impl Deserialize for De<Mime> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        struct MimeVisitor;
-
-        impl Visitor for MimeVisitor {
-            type Value = De<Mime>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a mime type")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-                where E: de::Error,
-            {
-                v.parse::<Mime>().map(De).map_err(|()| {
-                    E::custom("could not parse mime type")
-                })
-            }
-        }
-
-        deserializer.deserialize_string(MimeVisitor)
-    }
-}
-
-impl Deserialize for De<RawStatus> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
-    {
-        let (code, reason) = Deserialize::deserialize(deserializer)?;
-        Ok(De(RawStatus(code, reason)))
-    }
-}
-
-/// Serialises `value` with a given serializer.
-///
-/// This is useful to serialize Hyper types used in structure fields or
-/// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
-pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer,
-          for<'a> Ser<'a, T>: Serialize,
-{
-    Ser::new(value).serialize(serializer)
-}
-
 /// A wrapper to serialize Hyper types.
 ///
 /// This is useful with functions such as `serde_json::to_string`.
@@ -254,60 +125,6 @@ impl<'a, T> Ser<'a, T>
     #[inline(always)]
     pub fn new(value: &'a T) -> Self {
         Ser(value)
-    }
-}
-
-impl<'a> Serialize for Ser<'a, ContentType> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        serialize(&(self.0).0, serializer)
-    }
-}
-
-impl<'a> Serialize for Ser<'a, Cookie> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        serializer.serialize_str(&self.0.to_string())
-    }
-}
-
-impl<'a> Serialize for Ser<'a, Headers> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        let mut serializer = serializer.serialize_map(Some(self.0.len()))?;
-        for header in self.0.iter() {
-            let name = header.name();
-            let value = self.0.get_raw(name).unwrap();
-            serializer.serialize_entry(name, value)?;
-        }
-        serializer.end()
-    }
-}
-
-impl<'a> Serialize for Ser<'a, Method> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        Serialize::serialize(self.0.as_ref(), serializer)
-    }
-}
-
-impl<'a> Serialize for Ser<'a, Mime> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        serializer.serialize_str(&self.0.to_string())
-    }
-}
-
-impl<'a> Serialize for Ser<'a, RawStatus> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
-    {
-        ((self.0).0, &(self.0).1).serialize(serializer)
     }
 }
 
@@ -387,5 +204,188 @@ impl<T> Serialize for Serde<T>
         where S: Serializer,
     {
         Ser(&self.0).serialize(serializer)
+    }
+}
+
+impl Deserialize for De<ContentType> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        deserialize(deserializer).map(ContentType).map(De)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, ContentType> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serialize(&(self.0).0, serializer)
+    }
+}
+
+impl Deserialize for De<Cookie> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct CookieVisitor;
+
+        impl Visitor for CookieVisitor {
+            type Value = De<Cookie>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP cookie header value")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                Cookie::parse(v)
+                    .map(De)
+                    .map_err(|e| E::custom(format!("{:?}", e)))
+            }
+        }
+
+        deserializer.deserialize_string(CookieVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Cookie> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl Deserialize for De<Headers> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct HeadersVisitor;
+
+        impl Visitor for HeadersVisitor {
+            type Value = De<Headers>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a map from header names to header values")
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                Ok(De(Headers::new()))
+            }
+
+            fn visit_map<V>(self,
+                            mut visitor: V)
+                            -> Result<Self::Value, V::Error>
+                where V: MapVisitor,
+            {
+                let mut headers = Headers::new();
+                while let Some((key, value)) = visitor.visit::<String, _>()? {
+                    headers.set_raw(key, value);
+                }
+                Ok(De(headers))
+            }
+        }
+
+        deserializer.deserialize_map(HeadersVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Headers> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        let mut serializer = serializer.serialize_map(Some(self.0.len()))?;
+        for header in self.0.iter() {
+            let name = header.name();
+            let value = self.0.get_raw(name).unwrap();
+            serializer.serialize_entry(name, value)?;
+        }
+        serializer.end()
+    }
+}
+
+impl Deserialize for De<Method> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct MethodVisitor;
+
+        impl Visitor for MethodVisitor {
+            type Value = De<Method>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP method")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                v.parse::<Method>().map(De).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_string(MethodVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Method> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        Serialize::serialize(self.0.as_ref(), serializer)
+    }
+}
+
+impl Deserialize for De<Mime> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct MimeVisitor;
+
+        impl Visitor for MimeVisitor {
+            type Value = De<Mime>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a mime type")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                v.parse::<Mime>().map(De).map_err(|()| {
+                    E::custom("could not parse mime type")
+                })
+            }
+        }
+
+        deserializer.deserialize_string(MimeVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Mime> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl Deserialize for De<RawStatus> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        let (code, reason) = Deserialize::deserialize(deserializer)?;
+        Ok(De(RawStatus(code, reason)))
+    }
+}
+
+impl<'a> Serialize for Ser<'a, RawStatus> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        ((self.0).0, &(self.0).1).serialize(serializer)
     }
 }
