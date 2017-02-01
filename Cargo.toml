@@ -12,8 +12,8 @@ doctest = false
 [dependencies]
 cookie = {version = "0.4", default-features = false}
 hyper = {version = "0.9", default-features = false}
-mime = {version = "0.2.2", features = ["serde"]}
-serde = "0.8"
+mime = "0.2"
+serde = "0.9"
 
 [dev-dependencies]
-serde_test = "0.8"
+serde_test = "0.9"

@@ -61,8 +61,9 @@ use hyper::header::{ContentType, Headers};
 use hyper::http::RawStatus;
 use hyper::method::Method;
 use mime::Mime;
-use serde::{Deserialize, Deserializer, Error, Serialize, Serializer};
-use serde::de::{MapVisitor, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::{self, MapVisitor, Visitor};
+use serde::ser::SerializeMap;
 use std::cmp::PartialEq;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
@@ -71,7 +72,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// This is useful to deserialize Hyper types used in structure fields or
 /// tuple members with `#[serde(deserialize_with = "hyper_serde::deserialize")]`.
-pub fn deserialize<T, D>(deserializer: &mut D) -> Result<T, D::Error>
+pub fn deserialize<T, D>(deserializer: D) -> Result<T, D::Error>
     where D: Deserializer,
           De<T>: Deserialize,
 {
@@ -98,15 +99,15 @@ impl<T> De<T>
 }
 
 impl Deserialize for De<ContentType> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
-        Mime::deserialize(deserializer).map(ContentType).map(De)
+        deserialize(deserializer).map(ContentType).map(De)
     }
 }
 
 impl Deserialize for De<Cookie> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         struct CookieVisitor;
@@ -114,8 +115,12 @@ impl Deserialize for De<Cookie> {
         impl Visitor for CookieVisitor {
             type Value = De<Cookie>;
 
-            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
-                where E: Error,
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP cookie header value")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
             {
                 Cookie::parse(v)
                     .map(De)
@@ -128,7 +133,7 @@ impl Deserialize for De<Cookie> {
 }
 
 impl Deserialize for De<Headers> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         struct HeadersVisitor;
@@ -136,13 +141,17 @@ impl Deserialize for De<Headers> {
         impl Visitor for HeadersVisitor {
             type Value = De<Headers>;
 
-            fn visit_unit<E>(&mut self) -> Result<Self::Value, E>
-                where E: Error,
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a map from header names to header values")
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+                where E: de::Error,
             {
                 Ok(De(Headers::new()))
             }
 
-            fn visit_map<V>(&mut self,
+            fn visit_map<V>(self,
                             mut visitor: V)
                             -> Result<Self::Value, V::Error>
                 where V: MapVisitor,
@@ -151,7 +160,6 @@ impl Deserialize for De<Headers> {
                 while let Some((key, value)) = visitor.visit::<String, _>()? {
                     headers.set_raw(key, value);
                 }
-                visitor.end()?;
                 Ok(De(headers))
             }
         }
@@ -161,7 +169,7 @@ impl Deserialize for De<Headers> {
 }
 
 impl Deserialize for De<Method> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         struct MethodVisitor;
@@ -169,12 +177,14 @@ impl Deserialize for De<Method> {
         impl Visitor for MethodVisitor {
             type Value = De<Method>;
 
-            fn visit_str<E>(&mut self, v: &str) -> Result<Self::Value, E>
-                where E: Error,
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP method")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
             {
-                v.parse::<Method>()
-                    .map(De)
-                    .map_err(|err| E::invalid_value(&err.to_string()))
+                v.parse::<Method>().map(De).map_err(E::custom)
             }
         }
 
@@ -182,8 +192,34 @@ impl Deserialize for De<Method> {
     }
 }
 
+impl Deserialize for De<Mime> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct MimeVisitor;
+
+        impl Visitor for MimeVisitor {
+            type Value = De<Mime>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a mime type")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                v.parse::<Mime>().map(De).map_err(|()| {
+                    E::custom("could not parse mime type")
+                })
+            }
+        }
+
+        deserializer.deserialize_string(MimeVisitor)
+    }
+}
+
 impl Deserialize for De<RawStatus> {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         let (code, reason) = Deserialize::deserialize(deserializer)?;
@@ -195,7 +231,7 @@ impl Deserialize for De<RawStatus> {
 ///
 /// This is useful to serialize Hyper types used in structure fields or
 /// tuple members with `#[serde(serialize_with = "hyper_serde::serialize")]`.
-pub fn serialize<T, S>(value: &T, serializer: &mut S) -> Result<(), S::Error>
+pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer,
           for<'a> Ser<'a, T>: Serialize,
 {
@@ -221,15 +257,15 @@ impl<'a, T> Ser<'a, T>
 }
 
 impl<'a> Serialize for Ser<'a, ContentType> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        (self.0).0.serialize(serializer)
+        serialize(&(self.0).0, serializer)
     }
 }
 
 impl<'a> Serialize for Ser<'a, Cookie> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
         serializer.serialize_str(&self.0.to_string())
@@ -237,30 +273,37 @@ impl<'a> Serialize for Ser<'a, Cookie> {
 }
 
 impl<'a> Serialize for Ser<'a, Headers> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        let mut map_state = serializer.serialize_map(Some(self.0.len()))?;
+        let mut serializer = serializer.serialize_map(Some(self.0.len()))?;
         for header in self.0.iter() {
             let name = header.name();
             let value = self.0.get_raw(name).unwrap();
-            serializer.serialize_map_key(&mut map_state, name)?;
-            serializer.serialize_map_value(&mut map_state, value)?;
+            serializer.serialize_entry(name, value)?;
         }
-        serializer.serialize_map_end(map_state)
+        serializer.end()
     }
 }
 
 impl<'a> Serialize for Ser<'a, Method> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
         Serialize::serialize(self.0.as_ref(), serializer)
     }
 }
 
+impl<'a> Serialize for Ser<'a, Mime> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
 impl<'a> Serialize for Ser<'a, RawStatus> {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
         ((self.0).0, &(self.0).1).serialize(serializer)
@@ -328,7 +371,7 @@ impl<T> Deserialize for Serde<T>
     where De<T>: Deserialize,
           for<'a> Ser<'a, T>: Serialize,
 {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         De::deserialize(deserializer).map(De::into_inner).map(Serde)
@@ -339,7 +382,7 @@ impl<T> Serialize for Serde<T>
     where De<T>: Deserialize,
           for<'a> Ser<'a, T>: Serialize,
 {
-    fn serialize<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
         Ser(&self.0).serialize(serializer)
