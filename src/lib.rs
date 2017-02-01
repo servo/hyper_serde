@@ -3,11 +3,12 @@
 //!
 //! The supported types are:
 //!
-//! `cookie::Cookie`
-//! `hyper::header::ContentType`
-//! `hyper::header::Headers`
-//! `hyper::http::RawStatus`
-//! `hyper::method::Method`
+//! * `cookie::Cookie`
+//! * `hyper::header::ContentType`
+//! * `hyper::header::Headers`
+//! * `hyper::http::RawStatus`
+//! * `hyper::method::Method`
+//! * `mime::Mime`
 //!
 //! # How do I use a data type with a `Headers` member with Serde?
 //!

@@ -5,6 +5,7 @@ authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for Hyper types"
 license = "MIT"
 repository = "https://github.com/nox/hyper_serde"
+documentation = "https://docs.rs/hyper_serde"
 
 [lib]
 doctest = false
