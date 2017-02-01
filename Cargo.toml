@@ -3,7 +3,7 @@ name = "hyper_serde"
 version = "0.2.0"
 authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for Hyper types"
-license = "MIT"
+license = "MIT/Apache-2.0"
 repository = "https://github.com/nox/hyper_serde"
 documentation = "https://docs.rs/hyper_serde"
 
