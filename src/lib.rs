@@ -63,9 +63,10 @@ use hyper::http::RawStatus;
 use hyper::method::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::{self, MapVisitor, Visitor};
-use serde::ser::SerializeMap;
-use std::cmp::PartialEq;
+use serde::bytes::{ByteBuf, Bytes};
+use serde::de::{self, MapVisitor, SeqVisitor, Visitor};
+use serde::ser::{SerializeMap, SerializeSeq};
+use std::cmp;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
@@ -282,10 +283,48 @@ impl Deserialize for De<Headers> {
                 where V: MapVisitor,
             {
                 let mut headers = Headers::new();
-                while let Some((key, value)) = visitor.visit::<String, _>()? {
-                    headers.set_raw(key, value);
+                while let Some((k, v)) = visitor.visit::<String, Value>()? {
+                    headers.set_raw(k, v.0);
                 }
                 Ok(De(headers))
+            }
+        }
+
+        struct Value(Vec<Vec<u8>>);
+
+        impl Deserialize for Value {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where D: Deserializer,
+            {
+                deserializer.deserialize_seq(ValueVisitor)
+            }
+        }
+
+        struct ValueVisitor;
+
+        impl Visitor for ValueVisitor {
+            type Value = Value;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an array of strings and sequences of bytes")
+            }
+
+            fn visit_unit<E>(self) -> Result<Value, E>
+                where E: de::Error,
+            {
+                Ok(Value(vec![]))
+            }
+
+            fn visit_seq<V>(self, mut visitor: V) -> Result<Value, V::Error>
+                where V: SeqVisitor,
+            {
+                // Clamp to not OOM on rogue values.
+                let capacity = cmp::max(visitor.size_hint().0, 64);
+                let mut values = Vec::with_capacity(capacity);
+                while let Some(v) = visitor.visit::<ByteBuf>()? {
+                    values.push(v.into());
+                }
+                Ok(Value(values))
             }
         }
 
@@ -297,11 +336,26 @@ impl<'a> Serialize for Ser<'a, Headers> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
+        struct Value<'headers>(&'headers [Vec<u8>]);
+
+        impl<'headers> Serialize for Value<'headers> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                where S: Serializer,
+            {
+                let mut serializer =
+                    serializer.serialize_seq(Some(self.0.len()))?;
+                for v in self.0 {
+                    serializer.serialize_element(&Bytes::new(v))?;
+                }
+                serializer.end()
+            }
+        }
+
         let mut serializer = serializer.serialize_map(Some(self.0.len()))?;
         for header in self.0.iter() {
             let name = header.name();
             let value = self.0.get_raw(name).unwrap();
-            serializer.serialize_entry(name, value)?;
+            serializer.serialize_entry(name, &Value(value))?;
         }
         serializer.end()
     }
