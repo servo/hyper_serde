@@ -75,29 +75,24 @@ fn test_headers_not_empty() {
                    Token::Str("Host"),
                    Token::SeqStart(Some(1)),
                    Token::SeqSep,
-                   Token::SeqStart(Some(8)),
-                   Token::SeqSep,
-                   Token::U8(98), // 'b'
-                   Token::SeqSep,
-                   Token::U8(97), // 'a'
-                   Token::SeqSep,
-                   Token::U8(103), // 'g'
-                   Token::SeqSep,
-                   Token::U8(117), // 'u'
-                   Token::SeqSep,
-                   Token::U8(101), // 'e'
-                   Token::SeqSep,
-                   Token::U8(116), // 't'
-                   Token::SeqSep,
-                   Token::U8(116), // 't'
-                   Token::SeqSep,
-                   Token::U8(101), // 'e'
-                   Token::SeqEnd,
+                   Token::Bytes(b"baguette"),
                    Token::SeqEnd,
                    Token::MapEnd];
 
     assert_ser_tokens(&Ser::new(&headers), tokens);
     assert_de_tokens(&headers, tokens);
+
+    let pretty = &[Token::MapStart(Some(1)),
+                   Token::MapSep,
+                   Token::Str("Host"),
+                   Token::SeqStart(Some(1)),
+                   Token::SeqSep,
+                   Token::Str("baguette"),
+                   Token::SeqEnd,
+                   Token::MapEnd];
+
+    assert_ser_tokens(&Ser::new_pretty(&headers), pretty);
+    assert_de_tokens(&headers, pretty);
 }
 
 #[test]
