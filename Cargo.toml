@@ -17,7 +17,7 @@ doctest = false
 
 [dependencies]
 cookie = {version = "0.4", default-features = false}
-hyper = {version = "0.9", default-features = false}
+hyper = {version = "0.10", default-features = false}
 mime = "0.2"
 serde = "0.9"
 
