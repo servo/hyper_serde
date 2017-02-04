@@ -365,7 +365,7 @@ impl Deserialize for De<Headers> {
                 where V: SeqVisitor,
             {
                 // Clamp to not OOM on rogue values.
-                let capacity = cmp::max(visitor.size_hint().0, 64);
+                let capacity = cmp::min(visitor.size_hint().0, 64);
                 let mut values = Vec::with_capacity(capacity);
                 while let Some(v) = visitor.visit::<ByteBuf>()? {
                     values.push(v.into());
