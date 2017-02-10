@@ -1,6 +1,6 @@
 [package]
 name = "hyper_serde"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for Hyper types"
 license = "MIT/Apache-2.0"
@@ -16,7 +16,7 @@ travis-ci = { repository = "nox/hyper_serde" }
 doctest = false
 
 [dependencies]
-cookie = {version = "0.4", default-features = false}
+cookie = {version = "0.2", default-features = false}
 hyper = {version = "0.9", default-features = false}
 mime = "0.2"
 serde = "0.9"
