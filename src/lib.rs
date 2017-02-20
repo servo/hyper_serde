@@ -270,14 +270,14 @@ impl<'a> Serialize for Ser<'a, ContentType> {
     }
 }
 
-impl Deserialize for De<Cookie> {
+impl Deserialize for De<Cookie<'static>> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer,
     {
         struct CookieVisitor;
 
         impl Visitor for CookieVisitor {
-            type Value = De<Cookie>;
+            type Value = De<Cookie<'static>>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 write!(formatter, "an HTTP cookie header value")
@@ -287,6 +287,7 @@ impl Deserialize for De<Cookie> {
                 where E: de::Error,
             {
                 Cookie::parse(v)
+                    .map(Cookie::into_owned)
                     .map(De::new)
                     .map_err(|e| E::custom(format!("{:?}", e)))
             }
@@ -296,7 +297,7 @@ impl Deserialize for De<Cookie> {
     }
 }
 
-impl<'a> Serialize for Ser<'a, Cookie> {
+impl<'a> Serialize for Ser<'a, Cookie<'a>> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
