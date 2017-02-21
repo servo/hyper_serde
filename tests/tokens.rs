@@ -5,6 +5,7 @@ extern crate hyper_serde;
 extern crate mime;
 extern crate serde;
 extern crate serde_test;
+extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
@@ -14,6 +15,7 @@ use hyper_serde::{De, Ser, deserialize};
 use serde::Deserialize;
 use serde_test::{Deserializer, Token, assert_ser_tokens};
 use std::fmt::Debug;
+use time::Duration;
 
 #[test]
 fn test_content_type() {
@@ -26,19 +28,13 @@ fn test_content_type() {
 
 #[test]
 fn test_cookie() {
-    use std::collections::BTreeMap;
-
-    let cookie = Cookie {
-        name: "Hello".to_owned(),
-        value: "World!".to_owned(),
-        expires: None,
-        max_age: Some(42),
-        domain: Some("servo.org".to_owned()),
-        path: Some("/".to_owned()),
-        secure: true,
-        httponly: false,
-        custom: BTreeMap::new(),
-    };
+    let cookie = Cookie::build("Hello", "World!")
+        .max_age(Duration::seconds(42))
+        .domain("servo.org")
+        .path("/")
+        .secure(true)
+        .http_only(false)
+        .finish();
 
     let tokens = &[Token::Str("Hello=World!; Secure; Path=/; \
                                Domain=servo.org; Max-Age=42")];
