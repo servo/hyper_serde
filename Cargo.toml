@@ -20,6 +20,7 @@ cookie = {version = "0.6", default-features = false}
 hyper = "0.10"
 mime = "0.2"
 serde = "0.9"
+time = "0.1"
 
 [dev-dependencies]
 serde_test = "0.9"

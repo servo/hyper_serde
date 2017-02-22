@@ -2,6 +2,7 @@ extern crate cookie;
 extern crate hyper;
 extern crate hyper_serde;
 extern crate serde;
+extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
@@ -9,6 +10,7 @@ use hyper::http::RawStatus;
 use hyper::method::Method;
 use hyper_serde::{De, Ser, Serde};
 use serde::{Deserialize, Serialize};
+use time::Tm;
 
 fn is_supported<T>()
     where De<T>: Deserialize,
@@ -24,4 +26,5 @@ fn supported() {
     is_supported::<Headers>();
     is_supported::<Method>();
     is_supported::<RawStatus>();
+    is_supported::<Tm>();
 }
