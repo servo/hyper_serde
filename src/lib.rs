@@ -297,7 +297,7 @@ impl Deserialize for De<Cookie<'static>> {
     }
 }
 
-impl<'a> Serialize for Ser<'a, Cookie<'a>> {
+impl<'a, 'cookie> Serialize for Ser<'a, Cookie<'cookie>> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
