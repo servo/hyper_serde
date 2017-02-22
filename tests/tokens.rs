@@ -116,6 +116,17 @@ fn test_raw_status() {
     assert_de_tokens(&raw_status, tokens);
 }
 
+#[test]
+fn test_tm() {
+    use time::strptime;
+
+    let time = strptime("2017-02-22T12:03:31Z", "%Y-%m-%dT%H:%M:%SZ").unwrap();
+    let tokens = &[Token::Str("2017-02-22T12:03:31Z")];
+
+    assert_ser_tokens(&Ser::new(&time), tokens);
+    assert_de_tokens(&time, tokens);
+}
+
 pub fn assert_de_tokens<T>(value: &T, tokens: &[Token<'static>])
     where T: Debug + PartialEq,
           De<T>: Deserialize,

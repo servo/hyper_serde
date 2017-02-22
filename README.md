@@ -2,12 +2,13 @@ Serde support for Hyper types
 =============================
 
 This crate provides wrappers and convenience functions to support [Serde] for
-the types defined in [cookie], [Hyper] and [mime].
+some types defined in [cookie], [Hyper], [mime] and [time].
 
 [cookie]: https://github.com/alexcrichton/cookie-rs
 [Hyper]: https://github.com/hyperium/hyper
 [mime]: https://github.com/hyperium/mime.rs
 [Serde]: https://github.com/serde-rs/serde
+[time]: https://github.com/rust-lang-deprecated/time
 
 The supported types are:
 
@@ -17,6 +18,7 @@ The supported types are:
 * `hyper::http::RawStatus`
 * `hyper::method::Method`
 * `mime::Mime`
+* `time::Tm`
 
 For more details, see the crate documentation.
 
