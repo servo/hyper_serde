@@ -9,6 +9,7 @@
 //! * `hyper::http::RawStatus`
 //! * `hyper::method::Method`
 //! * `mime::Mime`
+//! * `time::Tm`
 //!
 //! # How do I use a data type with a `Headers` member with Serde?
 //!
@@ -56,6 +57,7 @@ extern crate cookie;
 extern crate hyper;
 extern crate mime;
 extern crate serde;
+extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
@@ -70,6 +72,7 @@ use std::cmp;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::str;
+use time::{Tm, strptime};
 
 /// Deserialises a `T` value with a given deserializer.
 ///
@@ -493,5 +496,39 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
         where S: Serializer,
     {
         (self.v.0, &self.v.1).serialize(serializer)
+    }
+}
+
+impl Deserialize for De<Tm> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer,
+    {
+        struct TmVisitor;
+
+        impl Visitor for TmVisitor {
+            type Value = De<Tm>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a date and time according to RFC 3339")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                strptime(v, "%Y-%m-%dT%H:%M:%SZ").map(De::new).map_err(|e| {
+                    E::custom(e.to_string())
+                })
+            }
+        }
+
+        deserializer.deserialize_string(TmVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Tm> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serializer.serialize_str(&self.v.rfc3339().to_string())
     }
 }
