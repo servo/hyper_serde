@@ -47,7 +47,7 @@ fn test_cookie() {
 fn test_headers_empty() {
     let headers = Headers::new();
 
-    let tokens = &[Token::MapStart(Some(0)), Token::MapEnd];
+    let tokens = &[Token::Map { len: Some(0) }, Token::MapEnd];
 
     assert_ser_tokens(&Ser::new(&headers), tokens);
     assert_de_tokens(&headers, tokens);
@@ -66,11 +66,9 @@ fn test_headers_not_empty() {
     // In Hyper 0.9, Headers is internally a HashMap and thus testing this
     // with multiple headers is non-deterministic.
 
-    let tokens = &[Token::MapStart(Some(1)),
-                   Token::MapSep,
+    let tokens = &[Token::Map{ len: Some(1) },
                    Token::Str("Host"),
-                   Token::SeqStart(Some(1)),
-                   Token::SeqSep,
+                   Token::Seq{ len: Some(1) },
                    Token::Bytes(b"baguette"),
                    Token::SeqEnd,
                    Token::MapEnd];
@@ -78,11 +76,9 @@ fn test_headers_not_empty() {
     assert_ser_tokens(&Ser::new(&headers), tokens);
     assert_de_tokens(&headers, tokens);
 
-    let pretty = &[Token::MapStart(Some(1)),
-                   Token::MapSep,
+    let pretty = &[Token::Map{ len: Some(1) },
                    Token::Str("Host"),
-                   Token::SeqStart(Some(1)),
-                   Token::SeqSep,
+                   Token::Seq{ len: Some(1) },
                    Token::Str("baguette"),
                    Token::SeqEnd,
                    Token::MapEnd];
@@ -105,10 +101,8 @@ fn test_raw_status() {
     use std::borrow::Cow;
 
     let raw_status = RawStatus(200, Cow::Borrowed("OK"));
-    let tokens = &[Token::TupleStart(2),
-                   Token::TupleSep,
+    let tokens = &[Token::Tuple{ len: 2 },
                    Token::U16(200),
-                   Token::TupleSep,
                    Token::Str("OK"),
                    Token::TupleEnd];
 
@@ -127,12 +121,12 @@ fn test_tm() {
     assert_de_tokens(&time, tokens);
 }
 
-pub fn assert_de_tokens<T>(value: &T, tokens: &[Token<'static>])
+pub fn assert_de_tokens<T>(value: &T, tokens: &[Token])
     where T: Debug + PartialEq,
-          De<T>: Deserialize,
+          for<'de> De<T>: Deserialize<'de>,
 {
-    let mut deserializer = Deserializer::new(tokens.iter().cloned());
-    let v = deserialize::<T, _>(&mut deserializer);
-    assert_eq!(v.as_ref(), Ok(value));
-    assert_eq!(deserializer.next_token(), None);
+    let mut deserializer = Deserializer::new(&tokens);
+    let v = deserialize::<T, _>(&mut deserializer).unwrap();
+    assert_eq!(&v, value);
+    assert_eq!(deserializer.next_token_opt(), None);
 }

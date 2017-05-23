@@ -15,9 +15,9 @@ use serde::{Deserialize, Serialize};
 use time::Tm;
 
 fn is_supported<T>()
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
-          Serde<T>: Deserialize + Serialize
+          for <'de> Serde<T>: Deserialize<'de> + Serialize
 {
 }
 

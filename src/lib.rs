@@ -57,6 +57,7 @@ extern crate cookie;
 extern crate hyper;
 extern crate mime;
 extern crate serde;
+extern crate serde_bytes;
 extern crate time;
 
 use cookie::Cookie;
@@ -65,8 +66,8 @@ use hyper::http::RawStatus;
 use hyper::method::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::bytes::{ByteBuf, Bytes};
-use serde::de::{self, MapVisitor, SeqVisitor, Visitor};
+use serde_bytes::{ByteBuf, Bytes};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeMap, SerializeSeq};
 use std::cmp;
 use std::fmt;
@@ -79,9 +80,9 @@ use time::{Tm, strptime};
 /// This is useful to deserialize Hyper types used in structure fields or
 /// tuple members with `#[serde(deserialize_with = "hyper_serde::deserialize")]`.
 #[inline(always)]
-pub fn deserialize<T, D>(deserializer: D) -> Result<T, D::Error>
-    where D: Deserializer,
-          De<T>: Deserialize,
+pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where D: Deserializer<'de>,
+          De<T>: Deserialize<'de>,
 {
     De::deserialize(deserializer).map(De::into_inner)
 }
@@ -133,8 +134,8 @@ impl<T> De<T> {
     }
 }
 
-impl<T> De<T>
-    where De<T>: Deserialize,
+impl<'de, T> De<T>
+    where De<T>: Deserialize<'de>,
 {
     /// Consumes this wrapper, returning the deserialized value.
     #[inline(always)]
@@ -182,11 +183,11 @@ impl<'a, T> Ser<'a, T>
 /// a `Vec<T>` need to be passed to serde.
 #[derive(Clone, PartialEq)]
 pub struct Serde<T>(pub T)
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize;
 
 impl<T> Serde<T>
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     /// Consumes this wrapper, returning the inner value.
@@ -198,7 +199,7 @@ impl<T> Serde<T>
 
 impl<T> fmt::Debug for Serde<T>
     where T: fmt::Debug,
-          De<T>: Deserialize,
+          for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -207,7 +208,7 @@ impl<T> fmt::Debug for Serde<T>
 }
 
 impl<T> Deref for Serde<T>
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     type Target = T;
@@ -218,7 +219,7 @@ impl<T> Deref for Serde<T>
 }
 
 impl<T> DerefMut for Serde<T>
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     fn deref_mut(&mut self) -> &mut T {
@@ -227,7 +228,7 @@ impl<T> DerefMut for Serde<T>
 }
 
 impl<T: PartialEq> PartialEq<T> for Serde<T>
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     fn eq(&self, other: &T) -> bool {
@@ -235,19 +236,19 @@ impl<T: PartialEq> PartialEq<T> for Serde<T>
     }
 }
 
-impl<T> Deserialize for Serde<T>
-    where De<T>: Deserialize,
+impl<'b, T> Deserialize<'b> for Serde<T>
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'b>,
     {
         De::deserialize(deserializer).map(De::into_inner).map(Serde)
     }
 }
 
 impl<T> Serialize for Serde<T>
-    where De<T>: Deserialize,
+    where for<'de> De<T>: Deserialize<'de>,
           for<'a> Ser<'a, T>: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -257,9 +258,9 @@ impl<T> Serialize for Serde<T>
     }
 }
 
-impl Deserialize for De<ContentType> {
+impl<'de> Deserialize<'de> for De<ContentType> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         deserialize(deserializer).map(ContentType).map(De::new)
     }
@@ -273,13 +274,13 @@ impl<'a> Serialize for Ser<'a, ContentType> {
     }
 }
 
-impl Deserialize for De<Cookie<'static>> {
+impl<'de> Deserialize<'de> for De<Cookie<'static>> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         struct CookieVisitor;
 
-        impl Visitor for CookieVisitor {
+        impl<'de> Visitor<'de> for CookieVisitor {
             type Value = De<Cookie<'static>>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -308,13 +309,13 @@ impl<'a, 'cookie> Serialize for Ser<'a, Cookie<'cookie>> {
     }
 }
 
-impl Deserialize for De<Headers> {
+impl<'de> Deserialize<'de> for De<Headers> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         struct HeadersVisitor;
 
-        impl Visitor for HeadersVisitor {
+        impl<'de> Visitor<'de> for HeadersVisitor {
             type Value = De<Headers>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -330,10 +331,10 @@ impl Deserialize for De<Headers> {
             fn visit_map<V>(self,
                             mut visitor: V)
                             -> Result<Self::Value, V::Error>
-                where V: MapVisitor,
+                where V: MapAccess<'de>,
             {
                 let mut headers = Headers::new();
-                while let Some((k, v)) = visitor.visit::<String, Value>()? {
+                while let Some((k, v)) = visitor.next_entry::<String, Value>()? {
                     headers.set_raw(k, v.0);
                 }
                 Ok(De::new(headers))
@@ -342,9 +343,9 @@ impl Deserialize for De<Headers> {
 
         struct Value(Vec<Vec<u8>>);
 
-        impl Deserialize for Value {
+        impl<'de> Deserialize<'de> for Value {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-                where D: Deserializer,
+                where D: Deserializer<'de>,
             {
                 deserializer.deserialize_seq(ValueVisitor)
             }
@@ -352,7 +353,7 @@ impl Deserialize for De<Headers> {
 
         struct ValueVisitor;
 
-        impl Visitor for ValueVisitor {
+        impl<'de> Visitor<'de> for ValueVisitor {
             type Value = Value;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -366,12 +367,12 @@ impl Deserialize for De<Headers> {
             }
 
             fn visit_seq<V>(self, mut visitor: V) -> Result<Value, V::Error>
-                where V: SeqVisitor,
+                where V: SeqAccess<'de>,
             {
                 // Clamp to not OOM on rogue values.
-                let capacity = cmp::min(visitor.size_hint().0, 64);
+                let capacity = cmp::min(visitor.size_hint().unwrap_or(0), 64);
                 let mut values = Vec::with_capacity(capacity);
-                while let Some(v) = visitor.visit::<ByteBuf>()? {
+                while let Some(v) = visitor.next_element::<ByteBuf>()? {
                     values.push(v.into());
                 }
                 Ok(Value(values))
@@ -417,13 +418,13 @@ impl<'a> Serialize for Ser<'a, Headers> {
     }
 }
 
-impl Deserialize for De<Method> {
+impl<'de> Deserialize<'de> for De<Method> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         struct MethodVisitor;
 
-        impl Visitor for MethodVisitor {
+        impl<'de> Visitor<'de> for MethodVisitor {
             type Value = De<Method>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -449,13 +450,13 @@ impl<'a> Serialize for Ser<'a, Method> {
     }
 }
 
-impl Deserialize for De<Mime> {
+impl<'de> Deserialize<'de> for De<Mime> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         struct MimeVisitor;
 
-        impl Visitor for MimeVisitor {
+        impl<'de> Visitor<'de> for MimeVisitor {
             type Value = De<Mime>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -483,9 +484,9 @@ impl<'a> Serialize for Ser<'a, Mime> {
     }
 }
 
-impl Deserialize for De<RawStatus> {
+impl<'de> Deserialize<'de> for De<RawStatus> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         let (code, reason) = Deserialize::deserialize(deserializer)?;
         Ok(De::new(RawStatus(code, reason)))
@@ -500,13 +501,13 @@ impl<'a> Serialize for Ser<'a, RawStatus> {
     }
 }
 
-impl Deserialize for De<Tm> {
+impl<'de> Deserialize<'de> for De<Tm> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         struct TmVisitor;
 
-        impl Visitor for TmVisitor {
+        impl<'de> Visitor<'de> for TmVisitor {
             type Value = De<Tm>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
