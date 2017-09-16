@@ -6,8 +6,8 @@
 //! * `cookie::Cookie`
 //! * `hyper::header::ContentType`
 //! * `hyper::header::Headers`
-//! * `hyper::http::RawStatus`
-//! * `hyper::method::Method`
+//! * `hyper::RawStatus`
+//! * `hyper::Method`
 //! * `mime::Mime`
 //! * `time::Tm`
 //!
@@ -62,8 +62,8 @@ extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use hyper::RawStatus;
+use hyper::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::{ByteBuf, Bytes};
@@ -412,7 +412,7 @@ impl<'a> Serialize for Ser<'a, Headers> {
         for header in self.v.iter() {
             let name = header.name();
             let value = self.v.get_raw(name).unwrap();
-            serializer.serialize_entry(name, &Value(value, self.pretty))?;
+            serializer.serialize_entry(name, &Value(&value.iter().map(|v| v.to_vec()).collect::<Vec<Vec<u8>>>(), self.pretty))?;
         }
         serializer.end()
     }
@@ -466,7 +466,7 @@ impl<'de> Deserialize<'de> for De<Mime> {
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
                 where E: de::Error,
             {
-                v.parse::<Mime>().map(De::new).map_err(|()| {
+                v.parse::<Mime>().map(De::new).map_err(|_| {
                     E::custom("could not parse mime type")
                 })
             }

@@ -7,8 +7,8 @@ extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use hyper::RawStatus;
+use hyper::Method;
 use hyper_serde::{De, Ser, Serde};
 use mime::Mime;
 use serde::{Deserialize, Serialize};

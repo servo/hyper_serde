@@ -1,16 +1,14 @@
 extern crate cookie;
 extern crate hyper;
 extern crate hyper_serde;
-#[macro_use]
-extern crate mime;
 extern crate serde;
 extern crate serde_test;
 extern crate time;
 
 use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use hyper::RawStatus;
+use hyper::Method;
 use hyper_serde::{De, Ser, deserialize};
 use serde::Deserialize;
 use serde_test::{Deserializer, Token, assert_ser_tokens};
@@ -19,7 +17,7 @@ use time::Duration;
 
 #[test]
 fn test_content_type() {
-    let content_type = ContentType(mime!(Application / Json));
+    let content_type = ContentType("Application/Json".parse().unwrap());
     let tokens = &[Token::Str("application/json")];
 
     assert_ser_tokens(&Ser::new(&content_type), tokens);
@@ -58,10 +56,10 @@ fn test_headers_not_empty() {
     use hyper::header::Host;
 
     let mut headers = Headers::new();
-    headers.set(Host {
-        hostname: "baguette".to_owned(),
-        port: None,
-    });
+    headers.set(Host::new(
+        "baguette",
+        None
+    ));
 
     // In Hyper 0.9, Headers is internally a HashMap and thus testing this
     // with multiple headers is non-deterministic.

@@ -17,8 +17,8 @@ doctest = false
 
 [dependencies]
 cookie = {version = "0.6", default-features = false}
-hyper = "0.10"
-mime = "0.2"
+hyper = { version = "0.11", features = ["raw_status"] }
+mime = "0.3"
 serde = "1.0"
 serde_bytes = "0.10"
 time = "0.1"
@@ -26,3 +26,6 @@ time = "0.1"
 [dev-dependencies]
 serde_test = "1.0"
 time = "0.1"
+
+[replace]
+"hyper:0.11.2" = { git = "https://github.com/hyperium/hyper.git" }
