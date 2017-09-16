@@ -1,16 +1,18 @@
 extern crate cookie;
+extern crate headers_ext;
+extern crate http;
 extern crate hyper;
 extern crate hyper_serde;
-#[macro_use]
 extern crate mime;
 extern crate serde;
 extern crate serde_test;
 extern crate time;
 
 use cookie::Cookie;
-use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use http::header::{self, HeaderMap, HeaderValue};
+use headers_ext::ContentType;
+use http::StatusCode;
+use hyper::Method;
 use hyper_serde::{De, Ser, deserialize};
 use serde::Deserialize;
 use serde_test::{Deserializer, Token, assert_ser_tokens};
@@ -19,7 +21,7 @@ use time::Duration;
 
 #[test]
 fn test_content_type() {
-    let content_type = ContentType(mime!(Application / Json));
+    let content_type = ContentType::from("Application/Json".parse::<mime::Mime>().unwrap());
     let tokens = &[Token::Str("application/json")];
 
     assert_ser_tokens(&Ser::new(&content_type), tokens);
@@ -28,16 +30,18 @@ fn test_content_type() {
 
 #[test]
 fn test_cookie() {
-    let cookie = Cookie::build("Hello", "World!")
+    // Unfortunately we have to do the to_string().parse() dance here to avoid the object being a
+    // string with a bunch of indices in it which apparently is different from the exact same
+    // cookie but parsed as a bunch of strings.
+    let cookie: Cookie = Cookie::build("Hello", "World!")
         .max_age(Duration::seconds(42))
         .domain("servo.org")
         .path("/")
         .secure(true)
         .http_only(false)
-        .finish();
+        .finish().to_string().parse().unwrap();
 
-    let tokens = &[Token::Str("Hello=World!; Secure; Path=/; \
-                               Domain=servo.org; Max-Age=42")];
+    let tokens = &[Token::Str("Hello=World!; Secure; Path=/; Domain=servo.org; Max-Age=42")];
 
     assert_ser_tokens(&Ser::new(&cookie), tokens);
     assert_de_tokens(&cookie, tokens);
@@ -45,7 +49,7 @@ fn test_cookie() {
 
 #[test]
 fn test_headers_empty() {
-    let headers = Headers::new();
+    let headers = HeaderMap::new();
 
     let tokens = &[Token::Map { len: Some(0) }, Token::MapEnd];
 
@@ -55,19 +59,14 @@ fn test_headers_empty() {
 
 #[test]
 fn test_headers_not_empty() {
-    use hyper::header::Host;
+    let mut headers = HeaderMap::new();
+    headers.insert(header::HOST, HeaderValue::from_static("baguette"));
 
-    let mut headers = Headers::new();
-    headers.set(Host {
-        hostname: "baguette".to_owned(),
-        port: None,
-    });
-
-    // In Hyper 0.9, Headers is internally a HashMap and thus testing this
+    // In http, HeaderMap is internally a HashMap and thus testing this
     // with multiple headers is non-deterministic.
 
     let tokens = &[Token::Map{ len: Some(1) },
-                   Token::Str("Host"),
+                   Token::Str("host"),
                    Token::Seq{ len: Some(1) },
                    Token::Bytes(b"baguette"),
                    Token::SeqEnd,
@@ -77,7 +76,7 @@ fn test_headers_not_empty() {
     assert_de_tokens(&headers, tokens);
 
     let pretty = &[Token::Map{ len: Some(1) },
-                   Token::Str("Host"),
+                   Token::Str("host"),
                    Token::Seq{ len: Some(1) },
                    Token::Str("baguette"),
                    Token::SeqEnd,
@@ -89,7 +88,7 @@ fn test_headers_not_empty() {
 
 #[test]
 fn test_method() {
-    let method = Method::Put;
+    let method = Method::PUT;
     let tokens = &[Token::Str("PUT")];
 
     assert_ser_tokens(&Ser::new(&method), tokens);
@@ -98,13 +97,8 @@ fn test_method() {
 
 #[test]
 fn test_raw_status() {
-    use std::borrow::Cow;
-
-    let raw_status = RawStatus(200, Cow::Borrowed("OK"));
-    let tokens = &[Token::Tuple{ len: 2 },
-                   Token::U16(200),
-                   Token::Str("OK"),
-                   Token::TupleEnd];
+    let raw_status = StatusCode::from_u16(200).unwrap();
+    let tokens = &[Token::U16(200)];
 
     assert_ser_tokens(&Ser::new(&raw_status), tokens);
     assert_de_tokens(&raw_status, tokens);

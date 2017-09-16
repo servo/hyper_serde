@@ -1,4 +1,6 @@
 extern crate cookie;
+extern crate headers_ext;
+extern crate http;
 extern crate hyper;
 extern crate hyper_serde;
 extern crate mime;
@@ -6,9 +8,9 @@ extern crate serde;
 extern crate time;
 
 use cookie::Cookie;
-use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use http::header::HeaderMap;
+use headers_ext::ContentType;
+use hyper::{Method, StatusCode};
 use hyper_serde::{De, Ser, Serde};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
@@ -25,9 +27,9 @@ fn is_supported<T>()
 fn supported() {
     is_supported::<Cookie>();
     is_supported::<ContentType>();
-    is_supported::<Headers>();
+    is_supported::<HeaderMap>();
     is_supported::<Method>();
     is_supported::<Mime>();
-    is_supported::<RawStatus>();
+    is_supported::<StatusCode>();
     is_supported::<Tm>();
 }

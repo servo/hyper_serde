@@ -4,14 +4,14 @@
 //! The supported types are:
 //!
 //! * `cookie::Cookie`
-//! * `hyper::header::ContentType`
+//! * `headers_ext::ContentType`
 //! * `hyper::header::Headers`
-//! * `hyper::http::RawStatus`
-//! * `hyper::method::Method`
+//! * `hyper::StatusCode`
+//! * `hyper::Method`
 //! * `mime::Mime`
 //! * `time::Tm`
 //!
-//! # How do I use a data type with a `Headers` member with Serde?
+//! # How do I use a data type with a `HeaderMap` member with Serde?
 //!
 //! Use the serde attributes `deserialize_with` and `serialize_with`.
 //!
@@ -19,11 +19,11 @@
 //! struct MyStruct {
 //! #[serde(deserialize_with = "hyper_serde::deserialize",
 //! serialize_with = "hyper_serde::serialize")]
-//! headers: Headers,
+//! headers: HeaderMap,
 //! }
 //! ```
 //!
-//! # How do I encode a `Headers` value with `serde_json::to_string`?
+//! # How do I encode a `HeaderMap` value with `serde_json::to_string`?
 //!
 //! Use the `Ser` wrapper.
 //!
@@ -54,25 +54,30 @@
 #![deny(unsafe_code)]
 
 extern crate cookie;
+extern crate http;
 extern crate hyper;
 extern crate mime;
 extern crate serde;
 extern crate serde_bytes;
 extern crate time;
+extern crate headers_ext;
 
 use cookie::Cookie;
-use hyper::header::{ContentType, Headers};
-use hyper::http::RawStatus;
-use hyper::method::Method;
+use headers_ext::ContentType;
+use hyper::StatusCode;
+use hyper::header::{HeaderName, HeaderValue};
+use http::HeaderMap;
+use hyper::Method;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::{ByteBuf, Bytes};
-use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, MapAccess, SeqAccess, Visitor, Error};
 use serde::ser::{SerializeMap, SerializeSeq};
 use std::cmp;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::str;
+use std::str::FromStr;
 use time::{Tm, strptime};
 
 /// Deserialises a `T` value with a given deserializer.
@@ -262,7 +267,7 @@ impl<'de> Deserialize<'de> for De<ContentType> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>,
     {
-        deserialize(deserializer).map(ContentType).map(De::new)
+        deserialize(deserializer).map(|v: mime::Mime| ContentType::from(v)).map(De::new)
     }
 }
 
@@ -270,7 +275,7 @@ impl<'a> Serialize for Ser<'a, ContentType> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        serialize(&self.v.0, serializer)
+        serialize(&mime::Mime::from(self.v.clone()), serializer)
     }
 }
 
@@ -309,14 +314,15 @@ impl<'a, 'cookie> Serialize for Ser<'a, Cookie<'cookie>> {
     }
 }
 
-impl<'de> Deserialize<'de> for De<Headers> {
+
+impl<'de> Deserialize<'de> for De<HeaderMap> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>,
     {
         struct HeadersVisitor;
 
         impl<'de> Visitor<'de> for HeadersVisitor {
-            type Value = De<Headers>;
+            type Value = De<HeaderMap>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 write!(formatter, "a map from header names to header values")
@@ -325,7 +331,7 @@ impl<'de> Deserialize<'de> for De<Headers> {
             fn visit_unit<E>(self) -> Result<Self::Value, E>
                 where E: de::Error,
             {
-                Ok(De::new(Headers::new()))
+                Ok(De::new(HeaderMap::new()))
             }
 
             fn visit_map<V>(self,
@@ -333,9 +339,11 @@ impl<'de> Deserialize<'de> for De<Headers> {
                             -> Result<Self::Value, V::Error>
                 where V: MapAccess<'de>,
             {
-                let mut headers = Headers::new();
-                while let Some((k, v)) = visitor.next_entry::<String, Value>()? {
-                    headers.set_raw(k, v.0);
+                let mut headers = HeaderMap::new();
+                while let Some((k, values)) = visitor.next_entry::<String, Value>()? {
+                    for v in values.0.iter() {
+                        headers.append(HeaderName::from_str(&k).map_err(V::Error::custom)?, HeaderValue::from_bytes(&v).map_err(V::Error::custom)?);
+                    }
                 }
                 Ok(De::new(headers))
             }
@@ -383,7 +391,7 @@ impl<'de> Deserialize<'de> for De<Headers> {
     }
 }
 
-impl<'a> Serialize for Ser<'a, Headers> {
+impl<'a> Serialize for Ser<'a, HeaderMap> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
@@ -408,11 +416,10 @@ impl<'a> Serialize for Ser<'a, Headers> {
             }
         }
 
-        let mut serializer = serializer.serialize_map(Some(self.v.len()))?;
-        for header in self.v.iter() {
-            let name = header.name();
-            let value = self.v.get_raw(name).unwrap();
-            serializer.serialize_entry(name, &Value(value, self.pretty))?;
+        let mut serializer = serializer.serialize_map(Some(self.v.keys_len()))?;
+        for name in self.v.keys() {
+            let values = self.v.get_all(name);
+            serializer.serialize_entry(name.as_str(), &Value(&values.iter().map(|v| v.as_bytes().iter().cloned().collect()).collect::<Vec<Vec<u8>>>(), self.pretty))?;
         }
         serializer.end()
     }
@@ -466,7 +473,7 @@ impl<'de> Deserialize<'de> for De<Mime> {
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
                 where E: de::Error,
             {
-                v.parse::<Mime>().map(De::new).map_err(|()| {
+                v.parse::<Mime>().map(De::new).map_err(|_| {
                     E::custom("could not parse mime type")
                 })
             }
@@ -484,20 +491,63 @@ impl<'a> Serialize for Ser<'a, Mime> {
     }
 }
 
-impl<'de> Deserialize<'de> for De<RawStatus> {
+impl<'de> Deserialize<'de> for De<StatusCode> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>,
     {
-        let (code, reason) = Deserialize::deserialize(deserializer)?;
-        Ok(De::new(RawStatus(code, reason)))
+        let code = Deserialize::deserialize(deserializer)?;
+        Ok(De::new(StatusCode::from_u16(code).map_err(D::Error::custom)?))
     }
 }
 
-impl<'a> Serialize for Ser<'a, RawStatus> {
+impl<'a> Serialize for Ser<'a, StatusCode> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        (self.v.0, &self.v.1).serialize(serializer)
+        self.v.as_u16().serialize(serializer)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, (StatusCode, String)> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        let mut serializer = serializer.serialize_seq(Some(2))?;
+        serializer.serialize_element(&Ser::new(&self.v.0))?;
+        serializer.serialize_element(&self.v.1)?;
+        serializer.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for De<(StatusCode, String)> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>,
+    {
+        Ok(De::new(deserializer.deserialize_seq(StatusVisitor)?))
+    }
+}
+
+struct StatusVisitor;
+
+impl<'de> Visitor<'de> for StatusVisitor {
+    type Value = (StatusCode, String);
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "an array containing a status code and a reason string")
+    }
+
+    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+        where V: SeqAccess<'de>,
+    {
+
+        let code = visitor.next_element::<u16>()?.ok_or_else(||
+            V::Error::custom("Can't find the status code")
+        )?;
+        let code = StatusCode::from_u16(code).map_err(V::Error::custom)?;
+        let reason = visitor.next_element::<String>()?.ok_or_else(||
+            V::Error::custom("Can't find the reason string")
+        )?;
+        Ok((code, reason))
     }
 }
 
