@@ -9,6 +9,7 @@ use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
 use hyper::RawStatus;
 use hyper::Method;
+use hyper::Uri;
 use hyper_serde::{De, Ser, Serde};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
@@ -30,4 +31,5 @@ fn supported() {
     is_supported::<Mime>();
     is_supported::<RawStatus>();
     is_supported::<Tm>();
+    is_supported::<Uri>();
 }

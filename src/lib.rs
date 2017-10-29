@@ -64,6 +64,7 @@ use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
 use hyper::RawStatus;
 use hyper::Method;
+use hyper::Uri;
 use mime::Mime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::{ByteBuf, Bytes};
@@ -71,6 +72,7 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeMap, SerializeSeq};
 use std::cmp;
 use std::fmt;
+use std::str::FromStr;
 use std::ops::{Deref, DerefMut};
 use std::str;
 use time::{Tm, strptime};
@@ -532,5 +534,39 @@ impl<'a> Serialize for Ser<'a, Tm> {
         where S: Serializer,
     {
         serializer.serialize_str(&self.v.rfc3339().to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for De<Uri> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>,
+    {
+        struct UriVisitor;
+
+        impl<'de> Visitor<'de> for UriVisitor {
+            type Value = De<Uri>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP Uri value")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                Uri::from_str(v)
+                    .map(De::new)
+                    .map_err(|e| E::custom(format!("{:?}", e)))
+            }
+        }
+
+        deserializer.deserialize_string(UriVisitor)
+    }
+}
+
+impl<'a, 'cookie> Serialize for Ser<'a, Uri> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        serializer.serialize_str(&self.v.to_string())
     }
 }

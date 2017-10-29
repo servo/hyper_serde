@@ -9,6 +9,7 @@ use cookie::Cookie;
 use hyper::header::{ContentType, Headers};
 use hyper::RawStatus;
 use hyper::Method;
+use hyper::Uri;
 use hyper_serde::{De, Ser, deserialize};
 use serde::Deserialize;
 use serde_test::{Deserializer, Token, assert_ser_tokens};
@@ -117,6 +118,18 @@ fn test_tm() {
 
     assert_ser_tokens(&Ser::new(&time), tokens);
     assert_de_tokens(&time, tokens);
+}
+
+#[test]
+fn test_uri() {
+    use std::str::FromStr;
+
+    let uri_string = "abc://username:password@example.com:123/path/data?key=value&key2=value2#fragid1";
+    let uri = Uri::from_str(uri_string).unwrap();
+    let tokens = &[Token::Str(uri_string)];
+
+    assert_ser_tokens(&Ser::new(&uri), tokens);
+    assert_de_tokens(&uri, tokens);
 }
 
 pub fn assert_de_tokens<T>(value: &T, tokens: &[Token])
