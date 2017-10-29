@@ -564,7 +564,7 @@ impl<'de> Deserialize<'de> for De<Uri> {
     }
 }
 
-impl<'a, 'cookie> Serialize for Ser<'a, Uri> {
+impl<'a> Serialize for Ser<'a, Uri> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
