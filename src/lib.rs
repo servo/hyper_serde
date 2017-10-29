@@ -8,6 +8,7 @@
 //! * `hyper::header::Headers`
 //! * `hyper::RawStatus`
 //! * `hyper::Method`
+//! * `hyper::Uri`
 //! * `mime::Mime`
 //! * `time::Tm`
 //!

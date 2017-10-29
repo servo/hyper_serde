@@ -17,6 +17,7 @@ The supported types are:
 * `hyper::header::Headers`
 * `hyper::http::RawStatus`
 * `hyper::method::Method`
+* `hyper::Uri`
 * `mime::Mime`
 * `time::Tm`
 
