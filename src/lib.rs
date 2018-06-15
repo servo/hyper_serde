@@ -390,7 +390,7 @@ impl<'a> Serialize for Ser<'a, Headers> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer,
     {
-        struct Value<'headers>(&'headers [Vec<u8>], bool);
+        struct Value<'headers>(&'headers [&'headers [u8]], bool);
 
         impl<'headers> Serialize for Value<'headers> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -415,7 +415,13 @@ impl<'a> Serialize for Ser<'a, Headers> {
         for header in self.v.iter() {
             let name = header.name();
             let value = self.v.get_raw(name).unwrap();
-            serializer.serialize_entry(name, &Value(&value.iter().map(|v| v.to_vec()).collect::<Vec<Vec<u8>>>(), self.pretty))?;
+            serializer.serialize_entry(
+                name,
+                &Value(
+                    &value.iter().collect::<Vec<_>>(),
+                    self.pretty
+                )
+            )?;
         }
         serializer.end()
     }
