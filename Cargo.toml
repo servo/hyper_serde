@@ -17,6 +17,7 @@ doctest = false
 
 [dependencies]
 cookie = {version = "0.6", default-features = false}
+# "raw_status" feature needed to expose the RawStatus type from hyper
 hyper = { version = "0.11", features = ["raw_status"] }
 mime = "0.3"
 serde = "1.0"
