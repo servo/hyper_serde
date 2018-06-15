@@ -15,8 +15,8 @@ The supported types are:
 * `cookie::Cookie`
 * `hyper::header::ContentType`
 * `hyper::header::Headers`
-* `hyper::http::RawStatus`
-* `hyper::method::Method`
+* `hyper::RawStatus`
+* `hyper::Method`
 * `hyper::Uri`
 * `mime::Mime`
 * `time::Tm`
