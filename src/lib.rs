@@ -562,7 +562,7 @@ impl<'de> Deserialize<'de> for De<Uri> {
             {
                 Uri::from_str(v)
                     .map(De::new)
-                    .map_err(|e| E::custom(format!("{:?}", e)))
+                    .map_err(|e| E::custom(format!("{}", e)))
             }
         }
 
