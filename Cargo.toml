@@ -26,6 +26,3 @@ time = "0.1"
 [dev-dependencies]
 serde_test = "1.0"
 time = "0.1"
-
-[replace]
-"hyper:0.11.2" = { git = "https://github.com/hyperium/hyper.git" }
