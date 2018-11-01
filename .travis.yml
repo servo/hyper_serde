@@ -6,3 +6,5 @@ rust:
 branches:
   except:
     - staging.tmp
+notifications:
+  webhooks: http://build.servo.org:54856/travis
