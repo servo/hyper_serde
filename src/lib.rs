@@ -53,15 +53,6 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-extern crate cookie;
-extern crate http;
-extern crate hyper;
-extern crate mime;
-extern crate serde;
-extern crate serde_bytes;
-extern crate time;
-extern crate headers;
-
 use cookie::Cookie;
 use headers::ContentType;
 use hyper::StatusCode;
