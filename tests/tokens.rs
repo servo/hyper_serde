@@ -1,5 +1,5 @@
 extern crate cookie;
-extern crate headers_ext;
+extern crate headers;
 extern crate http;
 extern crate hyper;
 extern crate hyper_serde;
@@ -10,7 +10,7 @@ extern crate time;
 
 use cookie::Cookie;
 use http::header::{self, HeaderMap, HeaderValue};
-use headers_ext::ContentType;
+use headers::ContentType;
 use http::StatusCode;
 use hyper::Method;
 use hyper_serde::{De, Ser, deserialize};

@@ -60,10 +60,10 @@ extern crate mime;
 extern crate serde;
 extern crate serde_bytes;
 extern crate time;
-extern crate headers_ext;
+extern crate headers;
 
 use cookie::Cookie;
-use headers_ext::ContentType;
+use headers::ContentType;
 use hyper::StatusCode;
 use hyper::header::{HeaderName, HeaderValue};
 use http::HeaderMap;
