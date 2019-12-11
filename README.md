@@ -4,11 +4,11 @@ Serde support for Hyper types
 This crate provides wrappers and convenience functions to support [Serde] for
 some types defined in [cookie], [Hyper], [mime] and [time].
 
-[cookie]: https://github.com/alexcrichton/cookie-rs
+[cookie]: https://github.com/SergioBenitez/cookie-rs
 [Hyper]: https://github.com/hyperium/hyper
-[mime]: https://github.com/hyperium/mime.rs
+[mime]: https://github.com/hyperium/mime
 [Serde]: https://github.com/serde-rs/serde
-[time]: https://github.com/rust-lang-deprecated/time
+[time]: https://github.com/time-rs/time
 
 The supported types are:
 
@@ -27,9 +27,9 @@ For more details, see the crate documentation.
 hyper_serde is licensed under either of
 
  * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
-   http://www.apache.org/licenses/LICENSE-2.0)
+   https://www.apache.org/licenses/LICENSE-2.0)
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or
-   http://opensource.org/licenses/MIT)
+   https://opensource.org/licenses/MIT)
 
 at your option.
 
