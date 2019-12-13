@@ -1,6 +1,6 @@
 [package]
 name = "hyper_serde"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2018"
 authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for Hyper types"
@@ -18,13 +18,13 @@ doctest = false
 
 [dependencies]
 cookie = {version = "0.11", default-features = false}
-http = "0.1"
-hyper = { version = "0.12" }
+http = "0.2"
+hyper = { version = "0.13" }
 mime = "0.3"
 serde = "1.0"
 serde_bytes = "0.11"
 time = "0.1"
-headers = "0.2"
+headers = "0.3"
 
 [dev-dependencies]
 serde_test = "1.0"
