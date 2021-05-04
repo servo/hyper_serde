@@ -12,7 +12,7 @@ use cookie::Cookie;
 use http::header::{self, HeaderMap, HeaderValue};
 use headers::ContentType;
 use http::StatusCode;
-use hyper::Method;
+use hyper::{Method, Uri};
 use hyper_serde::{De, Ser, deserialize};
 use serde::Deserialize;
 use serde_test::{Deserializer, Token, assert_ser_tokens};
@@ -113,6 +113,19 @@ fn test_tm() {
 
     assert_ser_tokens(&Ser::new(&time), tokens);
     assert_de_tokens(&time, tokens);
+}
+
+#[test]
+fn test_uri() {
+    use std::str::FromStr;
+
+    // Note that fragment is not serialized / deserialized
+    let uri_string = "abc://username:password@example.com:123/path/data?key=value&key2=value2";
+    let uri = Uri::from_str(uri_string).unwrap();
+    let tokens = &[Token::Str(uri_string)];
+
+    assert_ser_tokens(&Ser::new(&uri), tokens);
+    assert_de_tokens(&uri, tokens);
 }
 
 pub fn assert_de_tokens<T>(value: &T, tokens: &[Token])

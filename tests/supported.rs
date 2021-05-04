@@ -10,7 +10,7 @@ extern crate time;
 use cookie::Cookie;
 use http::header::HeaderMap;
 use headers::ContentType;
-use hyper::{Method, StatusCode};
+use hyper::{Method, StatusCode, Uri};
 use hyper_serde::{De, Ser, Serde};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
@@ -32,4 +32,5 @@ fn supported() {
     is_supported::<Mime>();
     is_supported::<StatusCode>();
     is_supported::<Tm>();
+    is_supported::<Uri>();
 }

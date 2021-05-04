@@ -8,6 +8,7 @@
 //! * `hyper::header::Headers`
 //! * `hyper::StatusCode`
 //! * `hyper::Method`
+//! * `hyper::Uri`
 //! * `mime::Mime`
 //! * `time::Tm`
 //!
@@ -70,6 +71,7 @@ use std::ops::{Deref, DerefMut};
 use std::str;
 use std::str::FromStr;
 use time::{Tm, strptime};
+use hyper::Uri;
 
 /// Deserialises a `T` value with a given deserializer.
 ///
@@ -573,5 +575,42 @@ impl<'a> Serialize for Ser<'a, Tm> {
         where S: Serializer,
     {
         serializer.serialize_str(&self.v.rfc3339().to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for De<Uri> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>,
+    {
+        struct UriVisitor;
+
+        impl<'de> Visitor<'de> for UriVisitor {
+            type Value = De<Uri>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an HTTP Uri value")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where E: de::Error,
+            {
+                Uri::from_str(v)
+                    .map(De::new)
+                    .map_err(|e| E::custom(format!("{}", e)))
+            }
+        }
+
+        deserializer.deserialize_string(UriVisitor)
+    }
+}
+
+impl<'a> Serialize for Ser<'a, Uri> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer,
+    {
+        // As of hyper 0.12, hyper::Uri (re-exported http::Uri)
+        // does not implement as_ref due to underlying implementation
+        // so we must construct a string to serialize it
+        serializer.serialize_str(&self.v.to_string())
     }
 }
