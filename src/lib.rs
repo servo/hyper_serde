@@ -121,13 +121,15 @@ pub fn serialize_pretty<T, S>(value: &T,
 ///
 /// Values of this type can only be obtained through
 /// the `serde::Deserialize` trait.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct De<T> {
     v: T,
 }
 
 impl<T> De<T> {
-    fn new(v: T) -> Self {
+    /// Returns a new `De` wrapper
+    #[inline(always)]
+    pub fn new(v: T) -> Self {
         De { v: v }
     }
 }
