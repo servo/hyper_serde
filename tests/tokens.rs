@@ -13,10 +13,8 @@ use http::header::{self, HeaderMap, HeaderValue};
 use headers::ContentType;
 use http::StatusCode;
 use hyper::{Method, Uri};
-use hyper_serde::{De, Ser, deserialize};
-use serde::Deserialize;
-use serde_test::{Deserializer, Token, assert_ser_tokens};
-use std::fmt::Debug;
+use hyper_serde::{De, Ser};
+use serde_test::{assert_de_tokens, assert_ser_tokens, Token};
 use time::Duration;
 
 #[test]
@@ -25,7 +23,7 @@ fn test_content_type() {
     let tokens = &[Token::Str("application/json")];
 
     assert_ser_tokens(&Ser::new(&content_type), tokens);
-    assert_de_tokens(&content_type, tokens);
+    assert_de_tokens(&De::new(content_type), tokens);
 }
 
 #[test]
@@ -44,7 +42,7 @@ fn test_cookie() {
     let tokens = &[Token::Str("Hello=World!; Secure; Path=/; Domain=servo.org; Max-Age=42")];
 
     assert_ser_tokens(&Ser::new(&cookie), tokens);
-    assert_de_tokens(&cookie, tokens);
+    assert_de_tokens(&De::new(cookie), tokens);
 }
 
 #[test]
@@ -54,7 +52,7 @@ fn test_headers_empty() {
     let tokens = &[Token::Map { len: Some(0) }, Token::MapEnd];
 
     assert_ser_tokens(&Ser::new(&headers), tokens);
-    assert_de_tokens(&headers, tokens);
+    assert_de_tokens(&De::new(headers), tokens);
 }
 
 #[test]
@@ -73,7 +71,7 @@ fn test_headers_not_empty() {
                    Token::MapEnd];
 
     assert_ser_tokens(&Ser::new(&headers), tokens);
-    assert_de_tokens(&headers, tokens);
+    assert_de_tokens(&De::new(headers.clone()), tokens);
 
     let pretty = &[Token::Map{ len: Some(1) },
                    Token::Str("host"),
@@ -83,7 +81,7 @@ fn test_headers_not_empty() {
                    Token::MapEnd];
 
     assert_ser_tokens(&Ser::new_pretty(&headers), pretty);
-    assert_de_tokens(&headers, pretty);
+    assert_de_tokens(&De::new(headers), pretty);
 }
 
 #[test]
@@ -92,7 +90,7 @@ fn test_method() {
     let tokens = &[Token::Str("PUT")];
 
     assert_ser_tokens(&Ser::new(&method), tokens);
-    assert_de_tokens(&method, tokens);
+    assert_de_tokens(&De::new(method), tokens);
 }
 
 #[test]
@@ -101,7 +99,7 @@ fn test_raw_status() {
     let tokens = &[Token::U16(200)];
 
     assert_ser_tokens(&Ser::new(&raw_status), tokens);
-    assert_de_tokens(&raw_status, tokens);
+    assert_de_tokens(&De::new(raw_status), tokens);
 }
 
 #[test]
@@ -112,7 +110,7 @@ fn test_tm() {
     let tokens = &[Token::Str("2017-02-22T12:03:31Z")];
 
     assert_ser_tokens(&Ser::new(&time), tokens);
-    assert_de_tokens(&time, tokens);
+    assert_de_tokens(&De::new(time), tokens);
 }
 
 #[test]
@@ -125,15 +123,5 @@ fn test_uri() {
     let tokens = &[Token::Str(uri_string)];
 
     assert_ser_tokens(&Ser::new(&uri), tokens);
-    assert_de_tokens(&uri, tokens);
-}
-
-pub fn assert_de_tokens<T>(value: &T, tokens: &[Token])
-    where T: Debug + PartialEq,
-          for<'de> De<T>: Deserialize<'de>,
-{
-    let mut deserializer = Deserializer::new(&tokens);
-    let v = deserialize::<T, _>(&mut deserializer).unwrap();
-    assert_eq!(&v, value);
-    assert_eq!(deserializer.next_token_opt(), None);
+    assert_de_tokens(&De::new(uri), tokens);
 }
