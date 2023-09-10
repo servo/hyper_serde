@@ -1,6 +1,6 @@
 [package]
 name = "hyper_serde"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2018"
 authors = ["Anthony Ramine <n.oxyde@gmail.com>"]
 description = "Serde support for hyper types."
@@ -14,7 +14,7 @@ keywords = ["serde", "serialization", "hyper", "cookie", "mime"]
 doctest = false
 
 [dependencies]
-cookie = { version = "0.12", default-features = false }
+cookie = { version = "0.16", default-features = false }
 headers = "0.3"
 http = "0.2"
 hyper = "0.14"

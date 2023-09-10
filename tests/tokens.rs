@@ -8,14 +8,13 @@ extern crate serde;
 extern crate serde_test;
 extern crate time;
 
-use cookie::Cookie;
-use http::header::{self, HeaderMap, HeaderValue};
+use cookie::{time::Duration, Cookie};
 use headers::ContentType;
+use http::header::{self, HeaderMap, HeaderValue};
 use http::StatusCode;
 use hyper::{Method, Uri};
 use hyper_serde::{De, Ser};
 use serde_test::{assert_de_tokens, assert_ser_tokens, Token};
-use time::Duration;
 
 #[test]
 fn test_content_type() {
