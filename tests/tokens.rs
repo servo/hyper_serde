@@ -30,13 +30,13 @@ fn test_cookie() {
     // Unfortunately we have to do the to_string().parse() dance here to avoid the object being a
     // string with a bunch of indices in it which apparently is different from the exact same
     // cookie but parsed as a bunch of strings.
-    let cookie: Cookie = Cookie::build("Hello", "World!")
+    let cookie: Cookie = Cookie::build(("Hello", "World!"))
         .max_age(Duration::seconds(42))
         .domain("servo.org")
         .path("/")
         .secure(true)
         .http_only(false)
-        .finish().to_string().parse().unwrap();
+        .to_string().parse().unwrap();
 
     let tokens = &[Token::Str("Hello=World!; Secure; Path=/; Domain=servo.org; Max-Age=42")];
 
